@@ -6,12 +6,12 @@
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
-        android:label="Tensei: TEMPLATE_NAME"
+        android:label="Tensei: Tsukihime"
         android:theme="@android:style/Theme.NoDisplay">
 
         <provider
             android:name=".ScraperProvider"
-            android:authorities="com.blissless.tensei_extension_template.provider"
+            android:authorities="com.blissless.tsukihime.provider"
             android:exported="true" />
 
         <receiver

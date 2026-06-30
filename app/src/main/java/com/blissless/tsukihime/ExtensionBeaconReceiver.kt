@@ -1,4 +1,4 @@
-package com.blissless.tensei_extension_template
+package com.blissless.tsukihime
 
 import android.content.BroadcastReceiver
 import android.content.Context
