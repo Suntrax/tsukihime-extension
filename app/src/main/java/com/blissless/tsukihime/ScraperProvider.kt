@@ -12,30 +12,27 @@ import org.json.JSONObject
 /**
  * ContentProvider queried by the Tensei Main App.
  *
- * Query URI:  content://com.blissless.tsukihime.provider/scrape
- *             ?anime=<title>&anilistId=<id>
+ * Query URI:
+ *   content://com.blissless.tsukihime.provider/scrape
+ *     ?anime=<english-title>&anilistId=<id>&animeRomaji=<romaji-title>&category=sub
  *
- * The Main App derives the authority as `<extension package>.provider`
- * (see MainActivity: `extensionAuthorities.add("$packageName.provider")`),
- * so the authority MUST equal `applicationId + ".provider"`. Using any other
- * value causes a UriMatcher miss → query() returns null → "Cursor is null or
- * empty."
+ * The `animeRomaji` query parameter was added so the scraper can match
+ * against the API's `anime.title` (romaji) field in addition to the
+ * `anime.english_title` field. This is what makes the exact-match strategy
+ * reliable: AniList's romaji title usually matches tsukihime's romaji title
+ * verbatim, even when the English titles differ slightly between sources.
+ *
+ * `category` is currently ignored by the scraper (tsukihime's API doesn't
+ * expose a category filter), but it's accepted for forward compatibility.
  *
  * Returns a single-row MatrixCursor whose "data" column holds a JSON string:
- *   - List<String>  -> ["https://…/x.torrent", ...]   (flat list, used here)
- *   - Map<Int, Map> -> {"1":{"1080p":"…"}}            (per-episode, optional)
- *   - failure       -> {"error":"..."}
- *
- * The scrape() return is narrowed with explicit `is` checks bound to typed
- * locals (no smart-cast reliance) so the release build compiles cleanly —
- * the template's original `result.isEmpty()` did NOT compile because
- * `scrape()` returns `Any`.
+ *   - 1 magnet -> ["magnet:..."]                  (the exact-matching torrent)
+ *   - 0 magnets -> {"error":"No results found."}  (no exact title match)
+ *   - failure  -> {"error":"Scraping failed: ..."}
  */
 class ScraperProvider : ContentProvider() {
 
     companion object {
-        // MUST be `<applicationId>.provider`. The Main App builds the URI as
-        // content://<extension package>.provider/scrape
         const val AUTHORITY = "com.blissless.tsukihime.provider"
         const val PATH_SCRAPE = "scrape"
         val CONTENT_URI: Uri = Uri.parse("content://$AUTHORITY/$PATH_SCRAPE")
@@ -57,12 +54,14 @@ class ScraperProvider : ContentProvider() {
     ): Cursor? {
         if (uriMatcher.match(uri) != CODE_SCRAPES) return null
 
-        val animeName = uri.getQueryParameter("anime")
-        val anilistId = uri.getQueryParameter("anilistId")
+        val animeName    = uri.getQueryParameter("anime")
+        val anilistId    = uri.getQueryParameter("anilistId")
+        val animeRomaji  = uri.getQueryParameter("animeRomaji")
+        // val category   = uri.getQueryParameter("category")  // unused, accepted for compat
         val cursor = MatrixCursor(arrayOf("data"))
 
         val json: String = try {
-            val result = TsukihimeScraper.scrape(context!!, animeName, anilistId)
+            val result = TsukihimeScraper.scrape(context!!, animeName, anilistId, animeRomaji)
             serialize(result)
         } catch (e: Exception) {
             val msg = e.message?.replace("\\", "\\\\")?.replace("\"", "\\\"") ?: "Unknown error"
@@ -76,8 +75,7 @@ class ScraperProvider : ContentProvider() {
     /**
      * Turn the scraper's `Any` return value into the JSON the Main App expects.
      * Each branch binds to an explicitly-typed local so the compiler never has
-     * to smart-cast `Any` — this is what fixes the `Unresolved reference
-     * 'isEmpty'` build error present in the template.
+     * to smart-cast `Any`.
      */
     private fun serialize(result: Any): String {
         when (result) {
