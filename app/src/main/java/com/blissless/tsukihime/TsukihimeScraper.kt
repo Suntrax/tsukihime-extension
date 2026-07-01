@@ -99,11 +99,12 @@ object TsukihimeScraper {
             try {
                 webViewHolder[0] = WebView(context).apply {
                     settings.javaScriptEnabled = true
-                    settings.domStorageEnabled = true
+                    settings.domStorageEnabled = false
+                    settings.databaseEnabled = false
+                    settings.cacheMode = WebSettings.LOAD_NO_CACHE
                     settings.blockNetworkImage = true
                     settings.loadsImagesAutomatically = false
                     settings.userAgentString = USER_AGENT
-                    settings.cacheMode = WebSettings.LOAD_NO_CACHE
 
                     webChromeClient = android.webkit.WebChromeClient()
 
